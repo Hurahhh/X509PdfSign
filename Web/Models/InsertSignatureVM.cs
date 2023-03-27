@@ -5,7 +5,7 @@ namespace Web.Models
     public class InsertSignatureVM
     {
         [Required]
-        public string PathToSrcPdf { get; set; }
+        public string SrcPdf { get; set; }
 
         [Required]
         public string SignatureBases64 { get; set; }

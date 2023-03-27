@@ -1,11 +1,5 @@
-﻿using iText.Forms;
-using iText.Forms.Fields;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas.Parser;
-using iText.Kernel.Pdf.Canvas.Parser.Listener;
-using Org.BouncyCastle.X509;
+﻿using Org.BouncyCastle.X509;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Web.Mvc;
 using Web.Common;
@@ -31,13 +25,22 @@ namespace Web.Controllers
         [HttpPost]
         public ActionResult PreSign([System.Web.Http.FromBody] PreSignVM vm)
         {
-            string pathToSrcPdf = Server.MapPath("~/App_Data/one_page.pdf");
-            var index = pathToSrcPdf.LastIndexOf(".pdf");
-            string pathToSignatureEmbeddedPdf = pathToSrcPdf.Substring(0, index) + ".sigemb.pdf";
-            string pathToPresignedPdf = pathToSrcPdf.Substring(0, index) + ".presigned.pdf";
+            var srcPdf = vm.SrcPdf;
+            var index = srcPdf.LastIndexOf(".pdf");
+            string sigEmbPdf = srcPdf.Substring(0, index) + ".sigemb.pdf";
+            var presignPdf = srcPdf.Substring(0, index) + ".presign.pdf";
+
+            string pathToSrcPdf = Server.MapPath("~/App_Data/" + srcPdf);
+            string pathToSignatureEmbeddedPdf = Server.MapPath("~/App_Data/" + sigEmbPdf);
+            string pathToPresignPdf = Server.MapPath("~/App_Data/" + presignPdf); ;
             string pathToImage = Server.MapPath("~/App_Data/signature_image.jpg");
 
             var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
+
+            if (!certChain[0].IsValidNow)
+            {
+                return Error("Certificate is expired");
+            }
 
             var signatureStamp = new SignatureStamp
             {
@@ -50,40 +53,62 @@ namespace Web.Controllers
                 Reason = "Signed",
             };
 
-            var signaturePostions = PdfUtil.GetSignaturePositions(pathToSrcPdf, "Ký, ghi rõ họ tên");
+            var signaturePostions = PdfUtil.GetSignaturePositions(pathToSrcPdf, "ký, ghi rõ họ tên");
+            if (signaturePostions.Count() == 0)
+            {
+                return Error("Cannot find where to sign in file");
+            }
 
             this._service.InsertSignatureGraphic(pathToSrcPdf, pathToSignatureEmbeddedPdf, signatureStamp, signaturePostions);
 
-            this._service.EmptySignature(pathToSignatureEmbeddedPdf, pathToPresignedPdf, signatureStamp);
-            var digest = this._service.HashFile(pathToPresignedPdf, signatureStamp.UniqueId, certChain);
+            this._service.EmptySignature(pathToSignatureEmbeddedPdf, pathToPresignPdf, signatureStamp);
+            var digest = this._service.HashFile(pathToPresignPdf, signatureStamp.UniqueId, certChain);
 
-            HttpContext.Cache[signatureStamp.UniqueId] = certChain;
+            HttpContext.Cache[signatureStamp.UniqueId + "_certChain"] = certChain; // cache certChain
+            HttpContext.Cache[signatureStamp.UniqueId + "_srcFileName"] = srcPdf;// cache source file
 
-            return Json(new { uniqueId = signatureStamp.UniqueId, digest = Convert.ToBase64String(digest), srcPath = pathToPresignedPdf });
+            return Success(
+                    "Success",
+                    new {
+                        uniqueId = signatureStamp.UniqueId,
+                        digest = Convert.ToBase64String(digest),
+                        srcPdf = presignPdf,
+                        serialNumber = certChain[0].SerialNumber.ToString(16)
+                    }
+            );
         }
 
         [HttpPost]
         public ActionResult InsertSignature([System.Web.Http.FromBody] InsertSignatureVM vm)
         {
-            var certChain = (X509Certificate[])HttpContext.Cache[vm.UniqueId];
+            var certChain = (X509Certificate[])HttpContext.Cache[vm.UniqueId + "_certChain"];
+            var srcPdf = (string)HttpContext.Cache[vm.UniqueId + "_srcFileName"];
 
             if (certChain == null)
             {
                 throw new Exception("Must PreSign first");
             }
 
-            var index = vm.PathToSrcPdf.LastIndexOf(".presigned.pdf");
-            string pathToDstPdf = vm.PathToSrcPdf.Substring(0, index) + ".signed.pdf";
+            var pathToSrcPdf = Server.MapPath("~/App_Data/" + vm.SrcPdf);
+            var index = vm.SrcPdf.LastIndexOf(".presign.pdf");
+            var dstPdf = srcPdf.Substring(0, index) + "sign.pdf";
+            string pathToDstPdf = Server.MapPath("~/App_Data/" + dstPdf);
 
             this._service.InsertSignature(
-                vm.PathToSrcPdf,
+                pathToSrcPdf,
                 pathToDstPdf,
                 vm.UniqueId,
                 Convert.FromBase64String(vm.SignatureBases64),
                 certChain
             );
 
-            return File(pathToDstPdf, "application/pdf");
+            return Success(
+                "Sign successful",
+                new {
+                    srcPdf = srcPdf,
+                    dstPdf = dstPdf
+                }
+            );
         }
     }
 }

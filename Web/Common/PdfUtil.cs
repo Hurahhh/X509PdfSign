@@ -11,42 +11,79 @@ namespace Web.Common
 {
     public static class PdfUtil
     {
+        /// <summary>
+        /// Get all where-to-sign in document
+        /// </summary>
+        /// <param name="pathToPdf"></param>
+        /// <param name="signaturePlaceholder"></param>
+        /// <returns></returns>
         public static IList<SignaturePosition> GetSignaturePositions(string pathToPdf, string signaturePlaceholder)
         {
-            var signaturePositions = new List<SignaturePosition>();
+            var result = new List<SignaturePosition>();
 
             var pdfDoc = new PdfDocument(new PdfReader(pathToPdf));
-
             var strategy = new LocationLetterExtractionStrategy();
 
             for (int pageNum = 1; pageNum <= pdfDoc.GetNumberOfPages(); pageNum++)
             {
-                var page = pdfDoc.GetPage(pageNum);
-
                 var parser = new PdfCanvasProcessor(strategy);
-                parser.ProcessPageContent(page);
+                parser.ProcessPageContent(pdfDoc.GetPage(pageNum));
 
                 var chunks = strategy.GetLetterChunks();
-                var text = strategy.GetFullText();
-                int index = text.IndexOf(signaturePlaceholder);
+                var text = strategy.GetFullText().ToLower();
+
+                var index = text.IndexOf(signaturePlaceholder.ToLower());
                 if (index > 0)
                 {
                     var first = chunks.ElementAt(index);
-
-                    signaturePositions.Add(
-                        new SignaturePosition(
+                    result.Add(new SignaturePosition(
                             pageNum,
                             first.Rect.GetX() + 10,
                             first.Rect.GetY() - 80
-                        )
-                    );
+                    ));
                 }
             }
 
             pdfDoc.Close();
 
-            return signaturePositions;
+            return result;
         }
+
+        /// <summary>
+        /// Get where-to-sign in a specific page of document
+        /// </summary>
+        /// <param name="pathToPdf"></param>
+        /// <param name="pageNum">pass -1 if you want last page</param>
+        /// <param name="signaturePlaceholder"></param>
+        /// <returns></returns>
+        public static SignaturePosition GetSignaturePosition(string pathToPdf, int pageNum, string signaturePlaceholder)
+        {
+            var pdfDoc = new PdfDocument(new PdfReader(pathToPdf));
+            PdfPage page = pageNum == -1 ? pdfDoc.GetLastPage() : pdfDoc.GetPage(pageNum);
+
+            var strategy = new LocationLetterExtractionStrategy();
+            var parser = new PdfCanvasProcessor(strategy);
+            parser.ProcessPageContent(page);
+
+            var chunks = strategy.GetLetterChunks();
+            var text = strategy.GetFullText().ToLower();
+
+            var index = text.IndexOf(signaturePlaceholder.ToLower());
+            if (index > 0)
+            {
+                var first = chunks.ElementAt(index);
+                return new SignaturePosition(
+                        pageNum,
+                        first.Rect.GetX() + 10,
+                        first.Rect.GetY() - 80
+                );
+            }
+
+            pdfDoc.Close();
+
+            return null;
+        }
+
     }
 
     public class LocationLetterExtractionStrategy : LocationTextExtractionStrategy

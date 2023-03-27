@@ -5,6 +5,7 @@ using iText.Layout;
 using iText.Layout.Element;
 using iText.Signatures;
 using Org.BouncyCastle.X509;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Web.Models;
@@ -110,11 +111,11 @@ namespace Web.Services
             // hashing
             var hash = DigestAlgorithms.Digest(rasStream, HASH_ALGORITHM);
             var pdfPKCS7 = new PdfPKCS7(null, certChain, HASH_ALGORITHM, false);
-            var digest = pdfPKCS7.GetAuthenticatedAttributeBytes(hash, PdfSigner.CryptoStandard.CMS, null, null); // to-be-signed hash
+            var digest = pdfPKCS7.GetAuthenticatedAttributeBytes(hash, PdfSigner.CryptoStandard.CMS, null, null);
 
             reader.Close();
 
-            return digest;
+            return DigestAlgorithms.Digest(new MemoryStream(digest), HASH_ALGORITHM); // to-be-signed hash;
         }
 
         /// <summary>
@@ -162,10 +163,11 @@ namespace Web.Services
 
         public byte[] Sign(Stream data) // except /Content already
         {
-            var pdfPKCS7 = new PdfPKCS7(null, certChain, hashAlg, false);
+            var pdfPKCS7 = new PdfPKCS7(null, certChain, hashAlg, true);
             pdfPKCS7.SetExternalDigest(_signature, null, cryptAlg);
 
             var hash = DigestAlgorithms.Digest(data, hashAlg);
+
             byte[] encodedPKCS7 = pdfPKCS7.GetEncodedPKCS7(hash, PdfSigner.CryptoStandard.CMS, null, null, null);
 
             return encodedPKCS7;

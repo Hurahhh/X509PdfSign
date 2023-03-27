@@ -30,7 +30,7 @@ class CAPluginService {
         }
 
         const data = { token };
-        
+
         const response = await fetch(`${this.url}/GetCert`, {
             method: 'POST',
             mode: "cors",
@@ -76,6 +76,34 @@ class CAPluginService {
         return response.text();
     }
 
+    async signXml(token, xml, serialNumber) {
+        if (!token || !xml || !serialNumber) {
+            throw new Error("Parameters can not be null or empty");
+        }
+
+        const data = {
+            token: token,
+            data: xml,
+            serialNumber: serialNumber
+        };
+
+        const response = await fetch(`${this.url}/SignXml`, {
+            method: 'POST',
+            mode: "cors",
+            headers: {
+                'Content-Type': 'text/plain',
+            },
+            referrerPolicy: "no-referrer",
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Encrypt data failed');
+        }
+
+        return response.text();
+    }
+
     async encrypt(token, message) {
         if (!token || !message) {
             throw new Error("Parameters can not be null or empty");
@@ -87,6 +115,33 @@ class CAPluginService {
         };
 
         const response = await fetch(`${this.url}/Encrypt`, {
+            method: 'POST',
+            mode: "cors",
+            headers: {
+                'Content-Type': 'text/plain',
+            },
+            referrerPolicy: "no-referrer",
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Encrypt data failed');
+        }
+
+        return response.text();
+    }
+
+    async decrypt(token, message) {
+        if (!token || !message) {
+            throw new Error("Parameters can not be null or empty");
+        }
+
+        const data = {
+            token: token,
+            data: message,
+        };
+
+        const response = await fetch(`${this.url}/Decrypt`, {
             method: 'POST',
             mode: "cors",
             headers: {

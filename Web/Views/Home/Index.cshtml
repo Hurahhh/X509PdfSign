@@ -12,26 +12,32 @@
         import { CAPluginService } from '/Content/js/CAPluginService.js';
 
         var _service = new CAPluginService();
+        var _serialNumber = "";
 
         $("#btnSignPdf").on("click", () => {
             _service.getToken()
-                .then(token =>
+                .then(token => 
                     _service
                         .getCert(token)
-                        .then(certBase64 => {
-                            //var pki = forge.pki;
+                        .then(commaSeparatedCertChainBase64 => {
+                            var pki = forge.pki;
 
-                            //var pem = util.pemFromBase64Cert(base64Cert);
-                            //var cert = pki.certificateFromPem(pem);
+                            var pem = util.pemFromBase64Cert(commaSeparatedCertChainBase64);
+                            var cert = pki.certificateFromPem(pem);
+                            _serialNumber = cert.serialNumber;
 
-                            preSign(certBase64);
+                            if (commaSeparatedCertChainBase64 && commaSeparatedCertChainBase64 != 'E04') {
+                                preSign(commaSeparatedCertChainBase64, token, 'one_page.pdf');
+                            }
                         })
                 );
         });
 
-        function preSign(certBase64) {
+        function preSign(commaSeparatedCertChainBase64, token, srcPdf) {
+
             var data = {
-                CommaSeparatedCertChainBase64: certBase64
+                CommaSeparatedCertChainBase64: commaSeparatedCertChainBase64,
+                SrcPdf: srcPdf
             };
 
             $.ajax({
@@ -39,16 +45,24 @@
                 method: 'POST',
                 data: JSON.stringify(data),
                 contentType: 'application/json',
-                success: function (data) {
-                    insertSignature(data.uniqueId, data.srcPath, data.digest)
+                success: function (response) {
+                    if (response.Status == 1) {
+                        _service.signHash(token, response.Data.digest, _serialNumber)
+                            .then(signatureBase64 => {
+                                if (signatureBase64 && signatureBase64 != 'E04') {
+                                    insertSignature(response.Data.uniqueId, response.Data.srcPdf, signatureBase64)
+                                }
+                            });
+                    }
+
                 }
             })
         }
 
-        function insertSignature(uniqueId, pathToSrcPdf, signatureBases64) {
+        function insertSignature(uniqueId, srcPdf, signatureBases64) {
             var data = {
                 UniqueId: uniqueId,
-                PathToSrcPdf: pathToSrcPdf,
+                SrcPdf: srcPdf,
                 SignatureBases64: signatureBases64
             };
 
@@ -57,7 +71,7 @@
                 method: 'POST',
                 data: JSON.stringify(data),
                 contentType: 'application/json',
-                success: function (data) {
+                success: function (response) {
 
                 }
             })
