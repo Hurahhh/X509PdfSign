@@ -118,7 +118,7 @@ namespace Web.Controllers
             var certChain = (X509Certificate[])HttpContext.Cache[vm.UniqueId + "_certChain"];
             var srcPdf = (string)HttpContext.Cache[vm.UniqueId + "_srcFileName"];
 
-            if (certChain == null)
+            if (certChain == null || srcPdf == null)
             {
                 throw new Exception("Must PreSign first");
             }
@@ -156,6 +156,10 @@ namespace Web.Controllers
                 Convert.FromBase64String(vm.SignatureBases64),
                 certChain
             );
+
+            // unset cache
+            HttpContext.Cache.Remove(vm.UniqueId + "_certChain");
+            HttpContext.Cache.Remove(vm.UniqueId + "_srcFileName");
 
             return Success(
                 "Sign successful",
