@@ -1,5 +1,6 @@
 ﻿using Org.BouncyCastle.X509;
 using System;
+using System.IO;
 using System.Linq;
 using System.Web.Mvc;
 using Web.Common;
@@ -10,6 +11,8 @@ namespace Web.Controllers
 {
     public class HomeController : BaseController
     {
+        public static string BASE_STORAGE_DIR = "~/App_Data/";
+
         private PdfSigningService _service;
 
         public HomeController()
@@ -30,13 +33,44 @@ namespace Web.Controllers
             string sigEmbPdf = srcPdf.Substring(0, index) + ".sigemb.pdf";
             var presignPdf = srcPdf.Substring(0, index) + ".presign.pdf";
 
-            string pathToSrcPdf = Server.MapPath("~/App_Data/" + srcPdf);
-            string pathToSignatureEmbeddedPdf = Server.MapPath("~/App_Data/" + sigEmbPdf);
-            string pathToPresignPdf = Server.MapPath("~/App_Data/" + presignPdf); ;
-            string pathToImage = Server.MapPath("~/App_Data/signature_image.jpg");
+            string pathToSrcPdf = Server.MapPath(BASE_STORAGE_DIR + srcPdf);
+            string pathToSigEmbPdf = Server.MapPath(BASE_STORAGE_DIR + sigEmbPdf);
+            string pathToPresignPdf = Server.MapPath(BASE_STORAGE_DIR + presignPdf); ;
+            string pathToGraphic = Server.MapPath(BASE_STORAGE_DIR + "signature_image.jpg");
+
+            #region Checking
+            var fiSrcPdf = new FileInfo(pathToSrcPdf);
+            var fiSigEmbPdf = new FileInfo(pathToSigEmbPdf);
+            var fiPresignPdf = new FileInfo(pathToPresignPdf);
+            var fiGraphic = new FileInfo(pathToGraphic);
+
+            if (!fiSrcPdf.Exists)
+            {
+                return Error("Source file does not exist");
+            }
+            if (FileUtil.IsLocked(fiSrcPdf))
+            {
+                return Error("Source file is unaccessable");
+            }
+            if (fiSigEmbPdf.Exists && FileUtil.IsLocked(fiSigEmbPdf))
+            {
+                return Error("Server error: fiSigEmbPdf");
+            }
+            if (fiPresignPdf.Exists && FileUtil.IsLocked(fiPresignPdf))
+            {
+                return Error("Server error: fiSigEmbPdf");
+            }
+            if (!fiGraphic.Exists)
+            {
+                return Error("Signature graphic does not exist");
+            }
+            if (FileUtil.IsLocked(fiGraphic))
+            {
+                return Error("Signature graphic is unaccessable");
+            }
+            #endregion
 
             var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
-
             if (!certChain[0].IsValidNow)
             {
                 return Error("Certificate is expired");
@@ -44,10 +78,10 @@ namespace Web.Controllers
 
             var signatureStamp = new SignatureStamp
             {
-                PathToImage = pathToImage,
+                PathToImage = pathToGraphic,
                 Contact = "binhld8@viettel.com.vn",
-                Width = 80,
-                Height = 60,
+                Width = SignatureStamp.DEFAULT_WIDTH,
+                Height = SignatureStamp.DEFAULT_HEIGHT,
                 certificate = certChain[0],
                 Location = "Hanoi",
                 Reason = "Signed",
@@ -59,9 +93,9 @@ namespace Web.Controllers
                 return Error("Cannot find where to sign in file");
             }
 
-            this._service.InsertSignatureGraphic(pathToSrcPdf, pathToSignatureEmbeddedPdf, signatureStamp, signaturePostions);
+            this._service.InsertSignatureGraphic(pathToSrcPdf, pathToSigEmbPdf, signatureStamp, signaturePostions);
 
-            this._service.EmptySignature(pathToSignatureEmbeddedPdf, pathToPresignPdf, signatureStamp);
+            this._service.EmptySignature(pathToSigEmbPdf, pathToPresignPdf, signatureStamp);
             var digest = this._service.HashFile(pathToPresignPdf, signatureStamp.UniqueId, certChain);
 
             HttpContext.Cache[signatureStamp.UniqueId + "_certChain"] = certChain; // cache certChain
@@ -70,10 +104,10 @@ namespace Web.Controllers
             return Success(
                     "Success",
                     new {
-                        uniqueId = signatureStamp.UniqueId,
-                        digest = Convert.ToBase64String(digest),
-                        srcPdf = presignPdf,
-                        serialNumber = certChain[0].SerialNumber.ToString(16)
+                        UniqueId = signatureStamp.UniqueId,
+                        Digest = Convert.ToBase64String(digest),
+                        SrcPdf = presignPdf,
+                        SerialNumber = certChain[0].SerialNumber.ToString(16)
                     }
             );
         }
@@ -89,10 +123,31 @@ namespace Web.Controllers
                 throw new Exception("Must PreSign first");
             }
 
-            var pathToSrcPdf = Server.MapPath("~/App_Data/" + vm.SrcPdf);
+            var pathToSrcPdf = Server.MapPath(BASE_STORAGE_DIR + vm.SrcPdf);
             var index = vm.SrcPdf.LastIndexOf(".presign.pdf");
+            if (index < 0)
+            {
+                return Error("Malformed source pdf");
+            }
             var dstPdf = srcPdf.Substring(0, index) + "sign.pdf";
-            string pathToDstPdf = Server.MapPath("~/App_Data/" + dstPdf);
+            string pathToDstPdf = Server.MapPath(BASE_STORAGE_DIR + dstPdf);
+
+            #region Checking
+            var fiSrcPdf = new FileInfo(pathToSrcPdf);
+            var fiDstPdf = new FileInfo(pathToDstPdf);
+            if (!fiSrcPdf.Exists)
+            {
+                return Error("Must presign first");
+            }
+            if (FileUtil.IsLocked(fiSrcPdf))
+            {
+                return Error("Presign file is unaccessable");
+            }
+            if (fiDstPdf.Exists && FileUtil.IsLocked(fiDstPdf))
+            {
+                return Error("Server error: fiDstPdf");
+            }
+            #endregion
 
             this._service.InsertSignature(
                 pathToSrcPdf,
@@ -105,8 +160,8 @@ namespace Web.Controllers
             return Success(
                 "Sign successful",
                 new {
-                    srcPdf = srcPdf,
-                    dstPdf = dstPdf
+                    SrcPdf = srcPdf,
+                    DstPdf = dstPdf
                 }
             );
         }

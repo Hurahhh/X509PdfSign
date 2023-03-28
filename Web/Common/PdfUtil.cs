@@ -59,7 +59,8 @@ namespace Web.Common
         public static SignaturePosition GetSignaturePosition(string pathToPdf, int pageNum, string signaturePlaceholder)
         {
             var pdfDoc = new PdfDocument(new PdfReader(pathToPdf));
-            PdfPage page = pageNum == -1 ? pdfDoc.GetLastPage() : pdfDoc.GetPage(pageNum);
+            pageNum = pageNum == -1 ? pdfDoc.GetNumberOfPages() : pageNum;
+            PdfPage page = pdfDoc.GetPage(pageNum);
 
             var strategy = new LocationLetterExtractionStrategy();
             var parser = new PdfCanvasProcessor(strategy);
