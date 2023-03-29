@@ -15,7 +15,8 @@
         var _serialNumber = "";
 
         $("#btnSignPdf").on("click", () => {
-            _service.getToken()
+            _service
+                .getToken()
                 .then(token => 
                     _service
                         .getCert(token)
@@ -49,12 +50,14 @@
                 contentType: 'application/json',
                 success: function (response) {
                     if (response.Status == 1) {
-                        _service.signHash(token, response.Data.Digest, _serialNumber)
+                        _service
+                            .signHash(token, response.Data.Digest, _serialNumber)
                             .then(signatureBase64 => {
                                 if (signatureBase64 && signatureBase64 != 'E04') {
                                     insertSignature(response.Data.UniqueId, response.Data.SrcPdf, signatureBase64)
                                 }
-                            });
+                            })
+                            .catch(e => console.error("Do you plug USB token and plugin is still running?"));
                     } else {
                         console.error(response.Data.Message);
                     }

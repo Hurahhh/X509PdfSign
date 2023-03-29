@@ -21,7 +21,8 @@ namespace Web.Common
         {
             var result = new List<SignaturePosition>();
 
-            var pdfDoc = new PdfDocument(new PdfReader(pathToPdf));
+            var pdfReader = new PdfReader(pathToPdf);
+            var pdfDoc = new PdfDocument(pdfReader);
             var strategy = new LocationLetterExtractionStrategy();
 
             for (int pageNum = 1; pageNum <= pdfDoc.GetNumberOfPages(); pageNum++)
@@ -45,6 +46,7 @@ namespace Web.Common
             }
 
             pdfDoc.Close();
+            pdfReader.Close();
 
             return result;
         }
@@ -58,13 +60,17 @@ namespace Web.Common
         /// <returns></returns>
         public static SignaturePosition GetSignaturePosition(string pathToPdf, int pageNum, string signaturePlaceholder)
         {
-            var pdfDoc = new PdfDocument(new PdfReader(pathToPdf));
+            var pdfReader = new PdfReader(pathToPdf);
+            var pdfDoc = new PdfDocument(pdfReader);
             pageNum = pageNum == -1 ? pdfDoc.GetNumberOfPages() : pageNum;
             PdfPage page = pdfDoc.GetPage(pageNum);
 
             var strategy = new LocationLetterExtractionStrategy();
             var parser = new PdfCanvasProcessor(strategy);
             parser.ProcessPageContent(page);
+
+            pdfDoc.Close();
+            pdfReader.Close();
 
             var chunks = strategy.GetLetterChunks();
             var text = strategy.GetFullText().ToLower();
@@ -79,8 +85,6 @@ namespace Web.Common
                         first.Rect.GetY() - 80
                 );
             }
-
-            pdfDoc.Close();
 
             return null;
         }

@@ -42,7 +42,9 @@ namespace Web.Services
         /// <param name="positions"></param>
         public void InsertSignatureGraphic(string pathToSrcPdf, string pathToDstPdf, SignatureStamp signatureStamp, IEnumerable<SignaturePosition> positions)
         {
-            var pdfDoc = new PdfDocument(new PdfReader(pathToSrcPdf), new PdfWriter(pathToDstPdf));
+            var pdfReader = new PdfReader(pathToSrcPdf);
+            var pdfWriter = new PdfWriter(pathToDstPdf);
+            var pdfDoc = new PdfDocument(pdfReader, pdfWriter);
             var doc = new Document(pdfDoc);
 
             foreach (var position in positions)
@@ -54,7 +56,10 @@ namespace Web.Services
                 doc.Add(image);
             }
 
-            doc.Close();
+            doc.Close(); // when doc is closed, writer is flushed :D
+            pdfDoc.Close();
+            pdfWriter.Close();
+            pdfReader.Close();
         }
 
         /// <summary>
@@ -128,16 +133,16 @@ namespace Web.Services
         /// <param name="certChain"></param>
         public void InsertSignature(string pathToSrcPdf, string pathToDstPdf, string sigDictName, byte[] signature, X509Certificate[] certChain)
         {
-            var reader = new PdfReader(pathToSrcPdf);
-            var rDoc = new PdfDocument(reader);
+            var pdfReader = new PdfReader(pathToSrcPdf);
+            var pdfDoc = new PdfDocument(pdfReader);
             var os = new FileStream(pathToDstPdf, FileMode.Create);
 
             var exSigContainer = new ReadySignatureSigner(signature, certChain, HASH_ALGORITHM, CRYPT_ALGORITHM);
-            PdfSigner.SignDeferred(rDoc, sigDictName, os, exSigContainer);
+            PdfSigner.SignDeferred(pdfDoc, sigDictName, os, exSigContainer);
 
-            reader.Close();
-            rDoc.Close();
             os.Close();
+            pdfDoc.Close();
+            pdfReader.Close();
         }
     }
 
