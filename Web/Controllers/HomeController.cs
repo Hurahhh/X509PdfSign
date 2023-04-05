@@ -1,5 +1,6 @@
 ﻿using Org.BouncyCastle.X509;
 using System;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Web.Mvc;
@@ -39,6 +40,7 @@ namespace Web.Controllers
             string pathToGraphic = Server.MapPath(BASE_STORAGE_DIR + "signature_image.jpg");
 
             #region Checking
+
             var fiSrcPdf = new FileInfo(pathToSrcPdf);
             var fiSigEmbPdf = new FileInfo(pathToSigEmbPdf);
             var fiPresignPdf = new FileInfo(pathToPresignPdf);
@@ -68,7 +70,8 @@ namespace Web.Controllers
             {
                 return Error("Signature graphic is unaccessable");
             }
-            #endregion
+
+            #endregion Checking
 
             var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
             if (!certChain[0].IsValidNow)
@@ -76,18 +79,14 @@ namespace Web.Controllers
                 return Error("Certificate is expired");
             }
 
-            var signatureStamp = new SignatureStamp
-            {
-                PathToImage = pathToGraphic,
-                Contact = "binhld8@viettel.com.vn",
-                Width = SignatureStamp.DEFAULT_WIDTH,
-                Height = SignatureStamp.DEFAULT_HEIGHT,
-                certificate = certChain[0],
-                Location = "Hanoi",
-                Reason = "Signed",
-            };
+            var signatureStamp = SignatureStamp.Factory
+                                    .SetCertificate(certChain[0])
+                                    .SetWidth(SignatureStamp.DEFAULT_WIDTH)
+                                    .SetHeight(SignatureStamp.DEFAULT_HEIGHT)
+                                    .SetGraphic(Image.FromFile(pathToGraphic))
+                                    .Build();
 
-            var signaturePostions = PdfUtil.GetSignaturePositions(pathToSrcPdf, "ký, ghi rõ họ tên");
+            var signaturePostions = PdfUtil.GetSignaturePositions(pathToSrcPdf, "ký, ghi rõ họ tên", signatureStamp);
             if (signaturePostions.Count() == 0)
             {
                 return Error("Cannot find where to sign in file");
@@ -103,7 +102,8 @@ namespace Web.Controllers
 
             return Success(
                     "Success",
-                    new {
+                    new
+                    {
                         UniqueId = signatureStamp.UniqueId,
                         Digest = Convert.ToBase64String(digest),
                         SrcPdf = presignPdf,
@@ -133,6 +133,7 @@ namespace Web.Controllers
             string pathToDstPdf = Server.MapPath(BASE_STORAGE_DIR + dstPdf);
 
             #region Checking
+
             var fiSrcPdf = new FileInfo(pathToSrcPdf);
             var fiDstPdf = new FileInfo(pathToDstPdf);
             if (!fiSrcPdf.Exists)
@@ -147,7 +148,8 @@ namespace Web.Controllers
             {
                 return Error("Server error: fiDstPdf");
             }
-            #endregion
+
+            #endregion Checking
 
             this._service.InsertSignature(
                 pathToSrcPdf,
@@ -163,7 +165,8 @@ namespace Web.Controllers
 
             return Success(
                 "Sign successful",
-                new {
+                new
+                {
                     SrcPdf = srcPdf,
                     DstPdf = dstPdf
                 }

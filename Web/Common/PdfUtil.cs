@@ -5,6 +5,7 @@ using iText.Kernel.Pdf.Canvas.Parser.Data;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using System.Collections.Generic;
 using System.Linq;
+using Web.Models;
 using Web.Services;
 
 namespace Web.Common
@@ -17,7 +18,7 @@ namespace Web.Common
         /// <param name="pathToPdf"></param>
         /// <param name="signaturePlaceholder"></param>
         /// <returns></returns>
-        public static IList<SignaturePosition> GetSignaturePositions(string pathToPdf, string signaturePlaceholder)
+        public static IList<SignaturePosition> GetSignaturePositions(string pathToPdf, string signaturePlaceholder, SignatureStamp signatureStamp)
         {
             var result = new List<SignaturePosition>();
 
@@ -37,10 +38,25 @@ namespace Web.Common
                 if (index > 0)
                 {
                     var first = chunks.ElementAt(index);
+
+                    // some magic math here
+                    float llx, lly;
+                    float ratio = (float)signatureStamp.Graphic.Width / signatureStamp.Graphic.Height;
+                    if (ratio > 1)
+                    {
+                        llx = first.Rect.GetX() + SignatureStamp.DEFAULT_PADDING;
+                        lly = first.Rect.GetY() - (signatureStamp.Height / 2) - (signatureStamp.Width - 2 * SignatureStamp.DEFAULT_PADDING) / (2 * ratio);
+                    }
+                    else
+                    {
+                        lly = first.Rect.GetY() - signatureStamp.Height + SignatureStamp.DEFAULT_PADDING;
+                        llx = first.Rect.GetX() + (signatureStamp.Width / 2) - ((signatureStamp.Height - 2 * SignatureStamp.DEFAULT_PADDING) * ratio / 2);
+                    }
+
                     result.Add(new SignaturePosition(
                             pageNum,
-                            first.Rect.GetX() + 10,
-                            first.Rect.GetY() - 80
+                            llx,
+                            lly
                     ));
                 }
             }
@@ -58,7 +74,7 @@ namespace Web.Common
         /// <param name="pageNum">pass -1 if you want last page</param>
         /// <param name="signaturePlaceholder"></param>
         /// <returns></returns>
-        public static SignaturePosition GetSignaturePosition(string pathToPdf, int pageNum, string signaturePlaceholder)
+        public static SignaturePosition GetSignaturePosition(string pathToPdf, int pageNum, string signaturePlaceholder, SignatureStamp signatureStamp)
         {
             var pdfReader = new PdfReader(pathToPdf);
             var pdfDoc = new PdfDocument(pdfReader);
@@ -79,6 +95,21 @@ namespace Web.Common
             if (index > 0)
             {
                 var first = chunks.ElementAt(index);
+
+                // some magic math here
+                float llx, lly;
+                float ratio = (float)signatureStamp.Graphic.Width / signatureStamp.Graphic.Height;
+                if (ratio > 1)
+                {
+                    llx = first.Rect.GetX() + SignatureStamp.DEFAULT_PADDING;
+                    lly = first.Rect.GetY() - (signatureStamp.Height / 2) - (signatureStamp.Width - 2 * SignatureStamp.DEFAULT_PADDING) / (2 * ratio);
+                }
+                else
+                {
+                    lly = first.Rect.GetY() - signatureStamp.Height + SignatureStamp.DEFAULT_PADDING;
+                    llx = first.Rect.GetX() + (signatureStamp.Width / 2) - ((signatureStamp.Height - 2 * SignatureStamp.DEFAULT_PADDING) * ratio / 2);
+                }
+
                 return new SignaturePosition(
                         pageNum,
                         first.Rect.GetX() + 10,
@@ -88,7 +119,6 @@ namespace Web.Common
 
             return null;
         }
-
     }
 
     public class LocationLetterExtractionStrategy : LocationTextExtractionStrategy

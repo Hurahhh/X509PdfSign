@@ -1,12 +1,22 @@
 ﻿using Org.BouncyCastle.X509;
 using System;
+using System.Drawing;
 
 namespace Web.Models
 {
     public class SignatureStamp
     {
-        public static readonly float DEFAULT_WIDTH = 80;
-        public static readonly float DEFAULT_HEIGHT = 60;
+        public static SignatureStampFactory Factory
+        {
+            get
+            {
+                return new SignatureStampFactory();
+            }
+        }
+
+        public static readonly float DEFAULT_WIDTH = 100;
+        public static readonly float DEFAULT_HEIGHT = 80;
+        public static readonly float DEFAULT_PADDING = 10;
 
         public SignatureStamp()
         {
@@ -14,19 +24,76 @@ namespace Web.Models
         }
 
         public string UniqueId { get; private set; }
+        public string Contact { get; private set; } = string.Empty;
+        public string Reason { get; private set; } = string.Empty;
+        public string Location { get; private set; } = string.Empty;
+        public Image Graphic { get; private set; }
+        public float Width { get; private set; }
+        public float Height { get; private set; }
+        public X509Certificate Certificate { get; private set; }
 
-        public string Contact { get; set; }
+        public class SignatureStampFactory
+        {
+            private SignatureStamp _Instance;
 
-        public string Reason { get; set; }
+            public SignatureStampFactory()
+            {
+                this._Instance = new SignatureStamp();
+            }
 
-        public string Location { get; set; }
+            /*
+             *
+             * Fluent API
+             * @author ❤️ BinhLD ❤️
+             *
+             */
 
-        public string PathToImage { get; set; }
+            public SignatureStampFactory SetContact(string contact)
+            {
+                this._Instance.Contact = contact;
+                return this;
+            }
 
-        public float Width { get; set; }
+            public SignatureStampFactory SetReason(string reason)
+            {
+                this._Instance.Reason = reason;
+                return this;
+            }
 
-        public float Height { get; set; }
+            public SignatureStampFactory SetLocation(string location)
+            {
+                this._Instance.Location = location;
+                return this;
+            }
 
-        public X509Certificate certificate { get; set; }
+            public SignatureStampFactory SetGraphic(Image image)
+            {
+                this._Instance.Graphic = image;
+                return this;
+            }
+
+            public SignatureStampFactory SetWidth(float width)
+            {
+                this._Instance.Width = width;
+                return this;
+            }
+
+            public SignatureStampFactory SetHeight(float height)
+            {
+                this._Instance.Height = height;
+                return this;
+            }
+
+            public SignatureStampFactory SetCertificate(X509Certificate certificate)
+            {
+                this._Instance.Certificate = certificate;
+                return this;
+            }
+
+            public SignatureStamp Build()
+            {
+                return this._Instance;
+            }
+        }
     }
 }

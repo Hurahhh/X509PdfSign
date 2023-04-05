@@ -5,7 +5,6 @@ using iText.Layout;
 using iText.Layout.Element;
 using iText.Signatures;
 using Org.BouncyCastle.X509;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using Web.Models;
@@ -49,10 +48,25 @@ namespace Web.Services
 
             foreach (var position in positions)
             {
-                var imageData = ImageDataFactory.Create(signatureStamp.PathToImage);
+                var imageData = ImageDataFactory.Create(signatureStamp.Graphic, null);
+                float width = 0, height = 0;
+                float ratio = (float)signatureStamp.Graphic.Width / signatureStamp.Graphic.Height;
+                if (ratio > 1)
+                {
+
+                    width = signatureStamp.Width - 2 * SignatureStamp.DEFAULT_PADDING;
+                    height = width / ratio;
+                }
+                else
+                {
+                    height = signatureStamp.Height - 2 * SignatureStamp.DEFAULT_PADDING;
+                    width = height * ratio;
+                }
+
                 var image = new Image(imageData)
-                                    .ScaleAbsolute(signatureStamp.Width, signatureStamp.Height)
-                                    .SetFixedPosition(position.PageNumber, position.llx, position.lly);
+                                .ScaleAbsolute(width, height)
+                                .SetFixedPosition(position.PageNumber, position.llx, position.lly);
+
                 doc.Add(image);
             }
 
@@ -81,7 +95,7 @@ namespace Web.Services
                 .SetReason(signatureStamp.Reason)
                 .SetContact(signatureStamp.Contact)
                 .SetLocation(signatureStamp.Location)
-                .SetCertificate(signatureStamp.certificate)
+                .SetCertificate(signatureStamp.Certificate)
                 .SetRenderingMode(PdfSignatureAppearance.RenderingMode.DESCRIPTION);
 
             signer.SetFieldName(signatureStamp.UniqueId);
