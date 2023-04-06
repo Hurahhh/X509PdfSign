@@ -2,90 +2,209 @@
     ViewBag.Title = "Home Page";
 }
 
-<button id="btnSignPdf">Sign Pdf</button>
+@section styles {
+    <style>
+        .w-100 {
+            max-width: none;
+            width: 100%;
+        }
+
+        .mt-8px {
+            margin-top: 8px;
+        }
+
+        .h-200px {
+            height: 200px;
+        }
+
+        .h-400px {
+            height: 400px;
+        }
+
+        .border {
+            border: 1px solid black;
+        }
+
+        .mw-100 {
+            max-width: 100%;
+        }
+
+        .mh-100 {
+            max-height: 100%;
+        }
+
+        .d-flex {
+            display: flex;
+        }
+
+        .justify-content-center {
+            justify-content: center;
+        }
+
+        .align-items-center {
+            align-items: center;
+        }
+    </style>    
+}
+
+<!-- Modal -->
+<div class="modal fade" id="myModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">Pdf digital signer</h4>
+            </div>
+            <div class="modal-body">
+            
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-addon" id="sizing-addon1">Pdf</span>
+                            <input type="file" class="form-control w-100" aria-describedby="sizing-addon1" id="inputPdf">
+                        </div>
+                        <div class="mt-8px">
+                            <iframe src="" class="border w-100 h-400px" id="iframePdf"></iframe>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-addon" id="sizing-addon2">Image</span>
+                            <input type="file" class="form-control w-100" aria-describedby="sizing-addon2" id="inputImage">
+                        </div>
+                        <div class="mt-8px border w-100 h-200px d-flex justify-content-center align-items-center">
+                            <img src="#" alt="" id="imgImage" class="mw-100 mh-100"/>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="btnSign">Sign</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section scripts {
     <script src="~/Content/js/forge.min.js"></script>
     <script src="~/Content/js/util.js"></script>
+    <script src="~/Content/js/CAPluginService.js"></script>
 
-    <script type="module" defer>
-        import { CAPluginService } from '/Content/js/CAPluginService.js';
+    <script defer>
+        jQuery(function ($) {
+            var $inputPdf = $("#inputPdf");
+            var $iframePdf = $("#iframePdf");
+            var $inputImage = $("#inputImage");
+            var $imgImage = $("#imgImage");
 
-        var _service = new CAPluginService();
-        var _serialNumber = "";
+            var _serialNumber = "";
 
-        $("#btnSignPdf").on("click", () => {
-            _service
-                .getToken()
-                .then(token => 
-                    _service
-                        .getCert(token)
-                        .then(commaSeparatedCertChainBase64 => {
-                            var pki = forge.pki;
+            $("#myModal").modal({
+                backdrop: 'static',
+                keyboard: false,
+                show: true
+            });
 
-                            var pem = util.pemFromBase64Cert(commaSeparatedCertChainBase64);
-                            var cert = pki.certificateFromPem(pem);
-                            _serialNumber = cert.serialNumber;
+            $inputPdf.on("change", function () {
+                var file = this.files[0];
+                var reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = function () {
+                    $iframePdf.attr('src', reader.result);
+                };
+                reader.onerror = function (error) {
+                    console.log('Error: ', error);
+                };
+            });
 
-                            if (commaSeparatedCertChainBase64 && commaSeparatedCertChainBase64 != 'E04') {
-                                preSign(commaSeparatedCertChainBase64, token, 'one_page.pdf');
-                            }
-                        })
-                        .catch(e => console.error("Do you plug USB token and plugin is still running?"))
-                )
-                .catch(e => console.error("Do you plug USB token and plugin is still running?"));
-        });
+            $inputImage.on("change", function () {
+                var file = this.files[0];
+                var reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = function () {
+                    $imgImage.attr('src', reader.result);
+                };
+                reader.onerror = function (error) {
+                    console.log('Error: ', error);
+                };
+            });
 
-        function preSign(commaSeparatedCertChainBase64, token, srcPdf) {
+            $("#btnSign").on("click", () => {
+                CAPluginService
+                    .getToken()
+                    .then(token =>
+                        CAPluginService
+                            .getCert(token)
+                            .then(commaSeparatedCertChainBase64 => {
+                                var pki = forge.pki;
 
-            var data = {
-                CommaSeparatedCertChainBase64: commaSeparatedCertChainBase64,
-                SrcPdf: srcPdf
-            };
+                                var pem = util.pemFromBase64Cert(commaSeparatedCertChainBase64);
+                                var cert = pki.certificateFromPem(pem);
+                                _serialNumber = cert.serialNumber;
 
-            $.ajax({
-                url: '/Home/PreSign',
-                method: 'POST',
-                data: JSON.stringify(data),
-                contentType: 'application/json',
-                success: function (response) {
-                    if (response.Status == 1) {
-                        _service
-                            .signHash(token, response.Data.Digest, _serialNumber)
-                            .then(signatureBase64 => {
-                                if (signatureBase64 && signatureBase64 != 'E04') {
-                                    insertSignature(response.Data.UniqueId, response.Data.SrcPdf, signatureBase64)
+                                if (commaSeparatedCertChainBase64 && commaSeparatedCertChainBase64 != 'E04') {
+                                    preSign(commaSeparatedCertChainBase64, token, 'one_page.pdf');
                                 }
                             })
-                            .catch(e => console.error("Do you plug USB token and plugin is still running?"));
-                    } else {
-                        console.error(response.Data.Message);
+                            .catch(e => console.error("Do you plug USB token and plugin is still running?"))
+                    )
+                    .catch(e => console.error("Do you plug USB token and plugin is still running?"));
+            });
+
+            function preSign(commaSeparatedCertChainBase64, token, srcPdf) {
+
+                var data = {
+                    CommaSeparatedCertChainBase64: commaSeparatedCertChainBase64,
+                    SrcPdf: srcPdf
+                };
+
+                $.ajax({
+                    url: '/Home/PreSign',
+                    method: 'POST',
+                    data: JSON.stringify(data),
+                    contentType: 'application/json',
+                    success: function (response) {
+                        if (response.Status == 1) {
+                            CAPluginService
+                                .signHash(token, response.Data.Digest, _serialNumber)
+                                .then(signatureBase64 => {
+                                    if (signatureBase64 && signatureBase64 != 'E04') {
+                                        insertSignature(response.Data.UniqueId, response.Data.SrcPdf, signatureBase64)
+                                    }
+                                })
+                                .catch(e => console.error("Do you plug USB token and plugin is still running?"));
+                        } else {
+                            console.error(response.Data.Message);
+                        }
                     }
-                }
-            })
-        }
+                })
+            }
 
-        function insertSignature(uniqueId, srcPdf, signatureBases64) {
-            var data = {
-                UniqueId: uniqueId,
-                SrcPdf: srcPdf,
-                SignatureBases64: signatureBases64
-            };
+            function insertSignature(uniqueId, srcPdf, signatureBases64) {
+                var data = {
+                    UniqueId: uniqueId,
+                    SrcPdf: srcPdf,
+                    SignatureBases64: signatureBases64
+                };
 
-            $.ajax({
-                url: '/Home/InsertSignature',
-                method: 'POST',
-                data: JSON.stringify(data),
-                contentType: 'application/json',
-                success: function (response) {
-                    if (response.Status == 1) {
-                        console.log("Success")
-                    } else {
-                        console.error(response.Data.Message);
+                $.ajax({
+                    url: '/Home/InsertSignature',
+                    method: 'POST',
+                    data: JSON.stringify(data),
+                    contentType: 'application/json',
+                    success: function (response) {
+                        if (response.Status == 1) {
+                            console.log("Success")
+                        } else {
+                            console.error(response.Data.Message);
+                        }
                     }
-                }
-            })
-        }
-
+                })
+            }
+        });
     </script>
 }   

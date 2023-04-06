@@ -1,11 +1,5 @@
-class CAPluginService {
-    constructor(port = 8888) {
-        if (!Number.isInteger(port)) {
-            throw new Error("Invalid port number");
-        }
-
-        this.url = `http://localhost:${port}`;
-    }
+CAPluginService =  {
+    url:  `http://localhost:8888`,
 
     async getToken() {
         const response = await fetch(`${this.url}/GetToken`, {
@@ -22,7 +16,7 @@ class CAPluginService {
         }
 
         return response.text();
-    }
+    },
 
     async getCert(token) {
         if (!token) {
@@ -46,7 +40,7 @@ class CAPluginService {
         }
 
         return response.text();
-    }
+    },
 
     async signHash(token, base64Hash, serialNumber) {
         if (!token || !base64Hash || !serialNumber) {
@@ -74,7 +68,7 @@ class CAPluginService {
         }
 
         return response.text();
-    }
+    },
 
     async signXml(token, xml, serialNumber) {
         if (!token || !xml || !serialNumber) {
@@ -102,7 +96,7 @@ class CAPluginService {
         }
 
         return response.text();
-    }
+    },
 
     async encrypt(token, message) {
         if (!token || !message) {
@@ -129,7 +123,7 @@ class CAPluginService {
         }
 
         return response.text();
-    }
+    },
 
     async decrypt(token, message) {
         if (!token || !message) {
@@ -156,7 +150,5 @@ class CAPluginService {
         }
 
         return response.text();
-    }
+    },
 }
-
-export { CAPluginService }
