@@ -177,14 +177,18 @@
     <Compile Include="Services\PdfSigningService.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="App_Data\cc.PNG" />
+    <Content Include="App_Data\qq.PNG" />
     <Content Include="App_Data\signature_image.jpg" />
+    <Content Include="Content\bootoast.min.css" />
     <Content Include="Content\bootstrap-theme.css" />
     <Content Include="Content\bootstrap-theme.min.css" />
     <Content Include="Content\bootstrap.css" />
     <Content Include="Content\bootstrap.min.css" />
-    <Content Include="Content\js\CAPluginService.js" />
-    <Content Include="Content\js\forge.min.js" />
-    <Content Include="Content\js\util.js" />
+    <Content Include="Scripts\bootoast.min.js" />
+    <Content Include="Scripts\custom\CAPluginService.js" />
+    <Content Include="Scripts\custom\forge.min.js" />
+    <Content Include="Scripts\custom\util.js" />
     <Content Include="favicon.ico" />
     <Content Include="fonts\glyphicons-halflings-regular.svg" />
     <Content Include="Global.asax" />

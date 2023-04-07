@@ -65,8 +65,8 @@
                             <span class="input-group-addon" id="sizing-addon1">Pdf</span>
                             <input type="file" class="form-control w-100" aria-describedby="sizing-addon1" id="inputPdf">
                         </div>
-                        <div class="mt-8px">
-                            <iframe src="" class="border w-100 h-400px" id="iframePdf"></iframe>
+                        <div class="mt-8px w-100">
+                            <iframe src="" class="w-100 h-400px" id="iframePdf"></iframe>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -74,7 +74,7 @@
                             <span class="input-group-addon" id="sizing-addon2">Image</span>
                             <input type="file" class="form-control w-100" aria-describedby="sizing-addon2" id="inputImage">
                         </div>
-                        <div class="mt-8px border w-100 h-200px d-flex justify-content-center align-items-center">
+                        <div class="mt-8px img-thumbnail w-100 h-200px d-flex justify-content-center align-items-center">
                             <img src="#" alt="" id="imgImage" class="mw-100 mh-100"/>
                         </div>
                     </div>
@@ -90,9 +90,9 @@
 </div>
 
 @section scripts {
-    <script src="~/Content/js/forge.min.js"></script>
-    <script src="~/Content/js/util.js"></script>
-    <script src="~/Content/js/CAPluginService.js"></script>
+    <script src="~/Scripts/custom/forge.min.js"></script>
+    <script src="~/Scripts/custom/util.js"></script>
+    <script src="~/Scripts/custom/CAPluginService.js"></script>
 
     <script defer>
         jQuery(function ($) {
@@ -134,6 +134,10 @@
             });
 
             $("#btnSign").on("click", () => {
+                if (!validate()) {
+                    return;
+                }
+
                 CAPluginService
                     .getToken()
                     .then(token =>
@@ -154,6 +158,24 @@
                     )
                     .catch(e => console.error("Do you plug USB token and plugin is still running?"));
             });
+
+            function validate() {
+                if (!$inputPdf.attr('src') || !$inputImage.attr('src')) {
+                    bootoast.toast({
+                        message: 'Please input pdf and signature image firstly!',
+                        type: 'danger',
+                        position: 'top',
+                        icon: null,
+                        timeout: 5,
+                        animationDuration: 300,
+                        dismissible: true
+                    });
+
+                    return false;
+                }
+
+                return true;
+            }
 
             function preSign(commaSeparatedCertChainBase64, token, srcPdf) {
 
