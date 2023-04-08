@@ -44,7 +44,7 @@
         .align-items-center {
             align-items: center;
         }
-    </style>    
+    </style>
 }
 
 <!-- Modal -->
@@ -58,7 +58,7 @@
                 <h4 class="modal-title">Pdf digital signer</h4>
             </div>
             <div class="modal-body">
-            
+
                 <div class="row">
                     <div class="col-md-8">
                         <div class="input-group">
@@ -75,7 +75,7 @@
                             <input type="file" class="form-control w-100" aria-describedby="sizing-addon2" id="inputImage">
                         </div>
                         <div class="mt-8px img-thumbnail w-100 h-200px d-flex justify-content-center align-items-center">
-                            <img src="#" alt="" id="imgImage" class="mw-100 mh-100"/>
+                            <img src="#" alt="" id="imgImage" class="mw-100 mh-100" />
                         </div>
                     </div>
                 </div>
@@ -100,8 +100,7 @@
             var $iframePdf = $("#iframePdf");
             var $inputImage = $("#inputImage");
             var $imgImage = $("#imgImage");
-
-            var _serialNumber = "";
+            var $iframeDownloader = $("#iframeDownloader");
 
             $("#myModal").modal({
                 backdrop: 'static',
@@ -135,6 +134,7 @@
 
             $("#btnSign").on("click", () => {
                 if (!validate()) {
+                    showDangerMessage('Please input pdf and signature image firstly!');
                     return;
                 }
 
@@ -151,37 +151,32 @@
                                 _serialNumber = cert.serialNumber;
 
                                 if (commaSeparatedCertChainBase64 && commaSeparatedCertChainBase64 != 'E04') {
-                                    preSign(commaSeparatedCertChainBase64, token, 'one_page.pdf');
+                                    var i = $iframePdf.attr('src').indexOf(',') + 1;
+                                    var j = $imgImage.attr('src').indexOf(',') + 1;
+                                    preSign($iframePdf.attr('src').substring(i), $imgImage.attr('src').substring(j), commaSeparatedCertChainBase64, token);
+                                } else {
+                                    showDangerMessage('Do you plug USB token and plugin is still running?');
                                 }
                             })
-                            .catch(e => console.error("Do you plug USB token and plugin is still running?"))
+                            .catch(e => showDangerMessage('Do you plug USB token and plugin is still running?'))
                     )
-                    .catch(e => console.error("Do you plug USB token and plugin is still running?"));
+                    .catch(e => showDangerMessage('Do you plug USB token and plugin is still running?'));
             });
 
             function validate() {
-                if (!$inputPdf.attr('src') || !$inputImage.attr('src')) {
-                    bootoast.toast({
-                        message: 'Please input pdf and signature image firstly!',
-                        type: 'danger',
-                        position: 'top',
-                        icon: null,
-                        timeout: 5,
-                        animationDuration: 300,
-                        dismissible: true
-                    });
-
-                    return false;
+                if ($iframePdf.attr('src') && $imgImage.attr('src')) {
+                    return true;
                 }
 
-                return true;
+                return false;
             }
 
-            function preSign(commaSeparatedCertChainBase64, token, srcPdf) {
+            function preSign(pdfBase64, graphicBase64, commaSeparatedCertChainBase64, token) {
 
                 var data = {
+                    PdfBase64: pdfBase64,
+                    GraphicBase64: graphicBase64,
                     CommaSeparatedCertChainBase64: commaSeparatedCertChainBase64,
-                    SrcPdf: srcPdf
                 };
 
                 $.ajax({
@@ -191,26 +186,31 @@
                     contentType: 'application/json',
                     success: function (response) {
                         if (response.Status == 1) {
+                            // savePdf(response.Data.PdfBase64, "presigned.pdf");
+
                             CAPluginService
                                 .signHash(token, response.Data.Digest, _serialNumber)
                                 .then(signatureBase64 => {
                                     if (signatureBase64 && signatureBase64 != 'E04') {
-                                        insertSignature(response.Data.UniqueId, response.Data.SrcPdf, signatureBase64)
+                                        insertSignature(response.Data.UniqueId, response.Data.PdfBase64, signatureBase64, commaSeparatedCertChainBase64)
+                                    } else {
+                                        showDangerMessage('Do you plug USB token and plugin is still running?');
                                     }
                                 })
-                                .catch(e => console.error("Do you plug USB token and plugin is still running?"));
+                                .catch(e => showDangerMessage('Do you plug USB token and plugin is still running?'));
                         } else {
-                            console.error(response.Data.Message);
+                            showDangerMessage(response.Data.Message);
                         }
                     }
                 })
             }
 
-            function insertSignature(uniqueId, srcPdf, signatureBases64) {
+            function insertSignature(uniqueId, pdfBase64, signatureBases64, commaSeparatedCertChainBase64) {
                 var data = {
                     UniqueId: uniqueId,
-                    SrcPdf: srcPdf,
-                    SignatureBases64: signatureBases64
+                    PdfBase64: pdfBase64,
+                    SignatureBases64: signatureBases64,
+                    CommaSeparatedCertChainBase64: commaSeparatedCertChainBase64
                 };
 
                 $.ajax({
@@ -220,12 +220,49 @@
                     contentType: 'application/json',
                     success: function (response) {
                         if (response.Status == 1) {
-                            console.log("Success")
+                            showSuccessMessage("Sign success");
+                            savePdf(response.Data.PdfBase64, "signed.pdf");
                         } else {
-                            console.error(response.Data.Message);
+                            showDangerMessage(response.Data.Message);
                         }
                     }
                 })
+            }
+
+            function showDangerMessage(msg) {
+                bootoast.toast({
+                    message: msg,
+                    type: 'danger',
+                    position: 'top',
+                    icon: null,
+                    timeout: 5,
+                    animationDuration: 300,
+                    dismissible: true
+                });
+            }
+
+            function showSuccessMessage(msg) {
+                bootoast.toast({
+                    message: msg,
+                    type: 'success',
+                    position: 'top',
+                    icon: null,
+                    timeout: 5,
+                    animationDuration: 300,
+                    dismissible: true
+                });
+            }
+
+            function savePdf(base64String, fileName) {
+                const href = `data:application/pdf;base64,${base64String}`;
+                const a = document.createElement('a');
+                document.body.appendChild(a);
+
+                a.href = href;
+                a.target = '_self';
+                a.download = fileName;
+                a.click();
+                a.remove();
             }
         });
     </script>
