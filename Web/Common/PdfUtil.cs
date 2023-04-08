@@ -4,6 +4,7 @@ using iText.Kernel.Pdf.Canvas.Parser;
 using iText.Kernel.Pdf.Canvas.Parser.Data;
 using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Web.Models;
 using Web.Services;
@@ -18,11 +19,11 @@ namespace Web.Common
         /// <param name="pathToPdf"></param>
         /// <param name="signaturePlaceholder"></param>
         /// <returns></returns>
-        public static IList<SignaturePosition> GetSignaturePositions(string pathToPdf, string signaturePlaceholder, SignatureStamp signatureStamp)
+        public static IList<SignaturePosition> GetSignaturePositions(Stream pdfStream, string signaturePlaceholder, SignatureStamp signatureStamp)
         {
             var result = new List<SignaturePosition>();
 
-            var pdfReader = new PdfReader(pathToPdf);
+            var pdfReader = new PdfReader(pdfStream);
             var pdfDoc = new PdfDocument(pdfReader);
             var strategy = new LocationLetterExtractionStrategy();
 

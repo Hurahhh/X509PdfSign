@@ -1,9 +1,10 @@
-﻿using Org.BouncyCastle.X509;
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Web.Mvc;
+using System.Web.Script.Serialization;
+using System.Web.Script.Services;
 using Web.Common;
 using Web.Models;
 using Web.Services;
@@ -12,8 +13,6 @@ namespace Web.Controllers
 {
     public class HomeController : BaseController
     {
-        public static string BASE_STORAGE_DIR = "~/App_Data/";
-
         private PdfSigningService _service;
 
         public HomeController()
@@ -29,49 +28,12 @@ namespace Web.Controllers
         [HttpPost]
         public ActionResult PreSign([System.Web.Http.FromBody] PreSignVM vm)
         {
-            var srcPdf = vm.SrcPdf;
-            var index = srcPdf.LastIndexOf(".pdf");
-            string sigEmbPdf = srcPdf.Substring(0, index) + ".sigemb.pdf";
-            var presignPdf = srcPdf.Substring(0, index) + ".presign.pdf";
+            var pdfBytes = Convert.FromBase64String(vm.PdfBase64);
+            var pdfStream = new MemoryStream(pdfBytes);
 
-            string pathToSrcPdf = Server.MapPath(BASE_STORAGE_DIR + srcPdf);
-            string pathToSigEmbPdf = Server.MapPath(BASE_STORAGE_DIR + sigEmbPdf);
-            string pathToPresignPdf = Server.MapPath(BASE_STORAGE_DIR + presignPdf); ;
-            string pathToGraphic = Server.MapPath(BASE_STORAGE_DIR + "signature_image.jpg");
-
-            #region Checking
-
-            var fiSrcPdf = new FileInfo(pathToSrcPdf);
-            var fiSigEmbPdf = new FileInfo(pathToSigEmbPdf);
-            var fiPresignPdf = new FileInfo(pathToPresignPdf);
-            var fiGraphic = new FileInfo(pathToGraphic);
-
-            if (!fiSrcPdf.Exists)
-            {
-                return Error("Source file does not exist");
-            }
-            if (FileUtil.IsLocked(fiSrcPdf))
-            {
-                return Error("Source file is unaccessable");
-            }
-            if (fiSigEmbPdf.Exists && FileUtil.IsLocked(fiSigEmbPdf))
-            {
-                return Error("Server error: fiSigEmbPdf");
-            }
-            if (fiPresignPdf.Exists && FileUtil.IsLocked(fiPresignPdf))
-            {
-                return Error("Server error: fiSigEmbPdf");
-            }
-            if (!fiGraphic.Exists)
-            {
-                return Error("Signature graphic does not exist");
-            }
-            if (FileUtil.IsLocked(fiGraphic))
-            {
-                return Error("Signature graphic is unaccessable");
-            }
-
-            #endregion Checking
+            // !TODO: resize image
+            var graphicBytes = Convert.FromBase64String(vm.GraphicBase64);
+            var graphicStream = new MemoryStream(graphicBytes);
 
             var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
             if (!certChain[0].IsValidNow)
@@ -83,92 +45,59 @@ namespace Web.Controllers
                                     .SetCertificate(certChain[0])
                                     .SetWidth(SignatureStamp.DEFAULT_WIDTH)
                                     .SetHeight(SignatureStamp.DEFAULT_HEIGHT)
-                                    .SetGraphic(Image.FromFile(pathToGraphic))
+                                    .SetGraphic(Image.FromStream(graphicStream))
                                     .Build();
 
-            var signaturePostions = PdfUtil.GetSignaturePositions(pathToSrcPdf, "ký, ghi rõ họ tên", signatureStamp);
+            var signaturePostions = PdfUtil.GetSignaturePositions(pdfStream, "ký, ghi rõ họ tên", signatureStamp);
             if (signaturePostions.Count() == 0)
             {
                 return Error("Cannot find where to sign in file");
             }
 
-            this._service.InsertSignatureGraphic(pathToSrcPdf, pathToSigEmbPdf, signatureStamp, signaturePostions);
+            byte[] sigEmbPdfBytes = null;
+            this._service.InsertSignatureGraphic(pdfBytes, out sigEmbPdfBytes, signatureStamp, signaturePostions);
 
-            this._service.EmptySignature(pathToSigEmbPdf, pathToPresignPdf, signatureStamp);
-            var digest = this._service.HashFile(pathToPresignPdf, signatureStamp.UniqueId, certChain);
+            byte[] presignPdfBytes = null;
+            this._service.EmptySignature(sigEmbPdfBytes, out presignPdfBytes, signatureStamp);
+            var digest = this._service.HashFile(presignPdfBytes, signatureStamp.UniqueId, certChain);
 
-            HttpContext.Cache[signatureStamp.UniqueId + "_certChain"] = certChain; // cache certChain
-            HttpContext.Cache[signatureStamp.UniqueId + "_srcFileName"] = srcPdf;// cache source file
+            pdfStream.Dispose();
+            graphicStream.Dispose();
 
             return Success(
-                    "Success",
-                    new
-                    {
-                        UniqueId = signatureStamp.UniqueId,
-                        Digest = Convert.ToBase64String(digest),
-                        SrcPdf = presignPdf,
-                        SerialNumber = certChain[0].SerialNumber.ToString(16)
-                    }
+                null,
+                new {
+                    UniqueId = signatureStamp.UniqueId,
+                    Digest = Convert.ToBase64String(digest),
+                    PdfBase64 = Convert.ToBase64String(presignPdfBytes),
+                    SerialNumber = certChain[0].SerialNumber.ToString(16)
+                }
             );
         }
 
         [HttpPost]
         public ActionResult InsertSignature([System.Web.Http.FromBody] InsertSignatureVM vm)
         {
-            var certChain = (X509Certificate[])HttpContext.Cache[vm.UniqueId + "_certChain"];
-            var srcPdf = (string)HttpContext.Cache[vm.UniqueId + "_srcFileName"];
-
-            if (certChain == null || srcPdf == null)
+            var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
+            if (!certChain[0].IsValidNow)
             {
-                throw new Exception("Must PreSign first");
+                return Error("Certificate is expired");
             }
 
-            var pathToSrcPdf = Server.MapPath(BASE_STORAGE_DIR + vm.SrcPdf);
-            var index = vm.SrcPdf.LastIndexOf(".presign.pdf");
-            if (index < 0)
-            {
-                return Error("Malformed source pdf");
-            }
-            var dstPdf = srcPdf.Substring(0, index) + "sign.pdf";
-            string pathToDstPdf = Server.MapPath(BASE_STORAGE_DIR + dstPdf);
-
-            #region Checking
-
-            var fiSrcPdf = new FileInfo(pathToSrcPdf);
-            var fiDstPdf = new FileInfo(pathToDstPdf);
-            if (!fiSrcPdf.Exists)
-            {
-                return Error("Must presign first");
-            }
-            if (FileUtil.IsLocked(fiSrcPdf))
-            {
-                return Error("Presign file is unaccessable");
-            }
-            if (fiDstPdf.Exists && FileUtil.IsLocked(fiDstPdf))
-            {
-                return Error("Server error: fiDstPdf");
-            }
-
-            #endregion Checking
-
+            byte[] signPdf;
             this._service.InsertSignature(
-                pathToSrcPdf,
-                pathToDstPdf,
+                Convert.FromBase64String(vm.PdfBase64),
+                out signPdf,
                 vm.UniqueId,
                 Convert.FromBase64String(vm.SignatureBases64),
                 certChain
             );
 
-            // unset cache
-            HttpContext.Cache.Remove(vm.UniqueId + "_certChain");
-            HttpContext.Cache.Remove(vm.UniqueId + "_srcFileName");
-
             return Success(
                 "Sign successful",
                 new
                 {
-                    SrcPdf = srcPdf,
-                    DstPdf = dstPdf
+                    PdfBase64 = Convert.ToBase64String(signPdf)
                 }
             );
         }

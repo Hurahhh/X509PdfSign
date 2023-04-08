@@ -8,6 +8,9 @@ namespace Web.Models
         public string CommaSeparatedCertChainBase64 { get; set; }
 
         [Required]
-        public string SrcPdf { get; set; }
+        public string PdfBase64 { get; set; }
+
+        [Required]
+        public string GraphicBase64 { get; set; }
     }
 }

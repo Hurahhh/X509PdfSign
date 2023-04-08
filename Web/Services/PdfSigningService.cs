@@ -35,14 +35,17 @@ namespace Web.Services
         /// <summary>
         /// Create a Pdf with signature image embedded
         /// </summary>
-        /// <param name="pathToSrcPdf"></param>
-        /// <param name="pathToDstPdf"></param>
-        /// <param name="pathToGraphic"></param>
+        /// <param name="pdfBytes"></param>
+        /// <param name="sigEmbPdfBytes"></param>
+        /// <param name="signatureStamp"></param>
         /// <param name="positions"></param>
-        public void InsertSignatureGraphic(string pathToSrcPdf, string pathToDstPdf, SignatureStamp signatureStamp, IEnumerable<SignaturePosition> positions)
+        public void InsertSignatureGraphic(byte[] pdfBytes, out byte[] sigEmbPdfBytes, SignatureStamp signatureStamp, IEnumerable<SignaturePosition> positions)
         {
-            var pdfReader = new PdfReader(pathToSrcPdf);
-            var pdfWriter = new PdfWriter(pathToDstPdf);
+            var inStream = new MemoryStream(pdfBytes);
+            var outStream = new MemoryStream();
+
+            var pdfReader = new PdfReader(inStream);
+            var pdfWriter = new PdfWriter(outStream);
             var pdfDoc = new PdfDocument(pdfReader, pdfWriter);
             var doc = new Document(pdfDoc);
 
@@ -71,24 +74,30 @@ namespace Web.Services
             }
 
             doc.Close(); // when doc is closed, writer is flushed :D
+            sigEmbPdfBytes = outStream.ToArray();
+
             pdfDoc.Close();
             pdfWriter.Close();
             pdfReader.Close();
+            inStream.Dispose();
+            outStream.Dispose();
         }
 
         /// <summary>
         /// Create a Pdf with an empty signature
         /// (Fill all required entry for signature dictionary except /Content)
         /// </summary>
-        /// <param name="pathToSrcPdf"></param>
-        /// <param name="pathToDstPdf"></param>
+        /// <param name="pdfBytes"></param>
+        /// <param name="presignPdfBytes"></param>
         /// <param name="signatureStamp"></param>
-        public void EmptySignature(string pathToSrcPdf, string pathToDstPdf, SignatureStamp signatureStamp)
+        public void EmptySignature(byte[] pdfBytes, out byte[] presignPdfBytes, SignatureStamp signatureStamp)
         {
-            var reader = new PdfReader(pathToSrcPdf);
-            var os = new FileStream(pathToDstPdf, FileMode.Create);
+            var inStream = new MemoryStream(pdfBytes);
+            var outStream = new MemoryStream();
 
-            var signer = new PdfSigner(reader, os, new StampingProperties());
+            var reader = new PdfReader(inStream);
+
+            var signer = new PdfSigner(reader, outStream, new StampingProperties());
             var appearance = signer.GetSignatureAppearance();
 
             appearance
@@ -104,18 +113,20 @@ namespace Web.Services
             signer.SignExternalContainer(blankSigContainter, 8192);
 
             reader.Close();
-            os.Close();
+            presignPdfBytes = outStream.ToArray();
+            outStream.Dispose();
         }
 
         /// <summary>
         /// </summary>
-        /// <param name="pathToPdf"></param>
+        /// <param name="pdfBytes"></param>
         /// <param name="sigDictName">signature dictionary name</param>
         /// <param name="certChain"></param>
         /// <returns>Digest (Authenticated Atrribute) of Pdf</returns>
-        public byte[] HashFile(string pathToPdf, string sigDictName, X509Certificate[] certChain)
+        public byte[] HashFile(byte[] pdfBytes, string sigDictName, X509Certificate[] certChain)
         {
-            var reader = new PdfReader(pathToPdf);
+            var pdfStream = new MemoryStream(pdfBytes);
+            var reader = new PdfReader(pdfStream);
 
             // turn pdf into bytes
             var sigUtil = new SignatureUtil(new PdfDocument(reader));
@@ -133,6 +144,7 @@ namespace Web.Services
             var digest = pdfPKCS7.GetAuthenticatedAttributeBytes(hash, PdfSigner.CryptoStandard.CMS, null, null);
 
             reader.Close();
+            pdfStream.Dispose();
 
             return DigestAlgorithms.Digest(new MemoryStream(digest), HASH_ALGORITHM); // to-be-signed hash;
         }
@@ -140,23 +152,28 @@ namespace Web.Services
         /// <summary>
         /// Create a Pdf file whose /Content entry was filled in by signature
         /// </summary>
-        /// <param name="pathToSrcPdf"></param>
-        /// <param name="pathToDstPdf"></param>
+        /// <param name="pdfBytes"></param>
+        /// <param name="signPdfBytes"></param>
         /// <param name="sigDictName"></param>
         /// <param name="signature"></param>
         /// <param name="certChain"></param>
-        public void InsertSignature(string pathToSrcPdf, string pathToDstPdf, string sigDictName, byte[] signature, X509Certificate[] certChain)
+        public void InsertSignature(byte[] pdfBytes, out byte[] signPdfBytes, string sigDictName, byte[] signature, X509Certificate[] certChain)
         {
-            var pdfReader = new PdfReader(pathToSrcPdf);
+            var inStream = new MemoryStream(pdfBytes);
+            var outStream = new MemoryStream();
+
+            var pdfReader = new PdfReader(inStream);
             var pdfDoc = new PdfDocument(pdfReader);
-            var os = new FileStream(pathToDstPdf, FileMode.Create);
 
             var exSigContainer = new ReadySignatureSigner(signature, certChain, HASH_ALGORITHM, CRYPT_ALGORITHM);
-            PdfSigner.SignDeferred(pdfDoc, sigDictName, os, exSigContainer);
+            PdfSigner.SignDeferred(pdfDoc, sigDictName, outStream, exSigContainer);
 
-            os.Close();
+            signPdfBytes = outStream.ToArray();
+
             pdfDoc.Close();
             pdfReader.Close();
+            inStream.Dispose();
+            outStream.Dispose();
         }
     }
 
