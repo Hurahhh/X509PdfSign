@@ -22,12 +22,13 @@ namespace Web
             bundles.Add(new ScriptBundle("~/bundles/bootstrap").Include(
                       "~/Scripts/bootstrap.js"));
 
-            bundles.Add(new ScriptBundle("~/bundles/bootoast").Include(
+            bundles.Add(new ScriptBundle("~/bundles/js").Include(
                       "~/Scripts/bootoast.min.js"));
 
             bundles.Add(new StyleBundle("~/Content/css").Include(
                       "~/Content/bootstrap.css",
                       "~/Content/bootoast.min.css",
+                      "~/Content/loader.css",
                       "~/Content/site.css"));
         }
     }
