@@ -3,8 +3,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Web.Mvc;
-using System.Web.Script.Serialization;
-using System.Web.Script.Services;
 using Web.Common;
 using Web.Models;
 using Web.Services;
@@ -26,13 +24,14 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        public ActionResult PreSign([System.Web.Http.FromBody] PreSignVM vm)
+        public ActionResult PreSign()
         {
+            var vm = DeserializeBody<PreSignVM>();
+
             var pdfBytes = Convert.FromBase64String(vm.PdfBase64);
             var pdfStream = new MemoryStream(pdfBytes);
 
-            // !TODO: resize image
-            var graphicBytes = Convert.FromBase64String(vm.GraphicBase64);
+            var graphicBytes = ImageUtil.ResizeImage(640, Convert.FromBase64String(vm.GraphicBase64));
             var graphicStream = new MemoryStream(graphicBytes);
 
             var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
@@ -66,7 +65,8 @@ namespace Web.Controllers
 
             return Success(
                 null,
-                new {
+                new
+                {
                     UniqueId = signatureStamp.UniqueId,
                     Digest = Convert.ToBase64String(digest),
                     PdfBase64 = Convert.ToBase64String(presignPdfBytes),
@@ -76,8 +76,10 @@ namespace Web.Controllers
         }
 
         [HttpPost]
-        public ActionResult InsertSignature([System.Web.Http.FromBody] InsertSignatureVM vm)
+        public ActionResult InsertSignature()
         {
+            var vm = this.DeserializeBody<InsertSignatureVM>();
+
             var certChain = CertUtil.GetCertChainFrom(vm.CommaSeparatedCertChainBase64);
             if (!certChain[0].IsValidNow)
             {

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
+using System.IO;
 using System.Web.Mvc;
 using System.Web.Script.Serialization;
 
@@ -64,6 +66,32 @@ namespace Web.Controllers
                 JsonRequestBehavior = behavior,
                 MaxJsonLength = Int32.MaxValue
             };
+        }
+
+        /// <summary>
+        /// Deserialize huge body
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        protected T DeserializeBody<T>() where T : class
+        {
+            T input = null;
+            var req = Request.InputStream;
+            req.Seek(0, SeekOrigin.Begin);
+            using (var sr = new StreamReader(req))
+            {
+                string json = sr.ReadToEnd();
+                try
+                {
+                    input = JsonConvert.DeserializeObject<T>(json);
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
+
+            return input;
         }
     }
 }

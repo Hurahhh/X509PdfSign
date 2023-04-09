@@ -164,6 +164,7 @@
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Common\CertUtil.cs" />
     <Compile Include="Common\FileUtil.cs" />
+    <Compile Include="Common\ImageUtil.cs" />
     <Compile Include="Common\PdfUtil.cs" />
     <Compile Include="Controllers\BaseController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
