@@ -8,9 +8,9 @@
 
 ## About <a name = "about"></a>
 
-This is a ASP.NET MVC web app was built to demo logic of digital signing a Pdf file. Here is the workflow:
-<br/>
-![sign pdf workflow]()
+This ASP.NET MVC web app was built to demo logic of digital signing a Pdf file. Here is the workflow:
+<br/><br/>
+![flow.png](./flow.png)
 
 ## Getting Started <a name = "getting_started"></a>
 
@@ -34,4 +34,4 @@ These instructions will get you a copy of the project up and running on your loc
 
 ## Usage <a name = "usage"></a>
 
-The to-be-signed pdf and the signed pdf are placed in the /Web/App_Data folder. Take some time to play around with my code. When you understand it you can copy some functions you need.
+Take some time to play around with my code. When you understand it you can copy some functions you need.
